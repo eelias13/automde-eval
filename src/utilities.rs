@@ -1,7 +1,6 @@
 use crate::{metrics::metric_dist, SwarmMetric, SwarmPos, SWARM_SIZE};
 use rand::Rng;
 use std::process::Command;
-use std::sync::{Arc, Mutex};
 use tokio::runtime::Builder;
 
 #[derive(Debug, Clone)]
@@ -17,7 +16,6 @@ pub struct Evaluator {
     metics_norm_min: SwarmMetric,
     metics_norm_max: SwarmMetric,
     db_path: String,
-    counter: Arc<Mutex<usize>>,
 }
 
 impl Evaluator {
@@ -32,17 +30,15 @@ impl Evaluator {
         let density_radius = env!("DENSITY_RADIUS").parse::<f64>().unwrap();
         let real_pos = get_real_bot_data(experiment_len);
         let [metics_norm_min, metics_norm_max] = get_metics_normalization();
-        let counter = Arc::new(Mutex::new(0));
 
         let db_con: sqlite::Connection = sqlite::open(&db_path).unwrap();
 
         let query =
-            "CREATE TABLE IF NOT EXISTS data (controller_cmd TEXT, seeds TEXT, metric_norm TEXT);";
+            "CREATE TABLE IF NOT EXISTS data (controller_cmd TEXT, seeds TEXT, metric_norm TEXT, time INTEGER);";
         db_con.execute(query).unwrap();
 
         assert!(save_probability <= 1.0);
         return Self {
-            counter,
             db_path,
             automode_exe,
             scenario,
@@ -72,9 +68,11 @@ impl Evaluator {
             .collect::<Vec<String>>()
             .join(", ");
 
-        let query = format!("INSERT INTO data VALUES ('{controller_cmd}', '{seeds}', '{metric_norm}');",);
+        let query = format!("INSERT INTO data (controller_cmd, seeds, metric_norm, time) VALUES ('{controller_cmd}', '{seeds}', '{metric_norm}', datetime('now', 'localtime'));");
         db_con.execute(query).unwrap();
     }
+
+    // INSERT INTO data (controller_cmd, seeds, metric_norm, time) VALUES ('aa', 'bb', 'cc', datetime('now', 'localtime'));
 
     pub fn get_command(&self, seed: i32, controller_cmd: Vec<String>) -> std::process::Output {
         return Command::new(self.automode_exe.clone())
@@ -90,10 +88,6 @@ impl Evaluator {
     }
 
     pub fn eval_controller(&self, controller_cmd: Vec<String>) -> f64 {
-        //        let mut counter = self.counter.lock().unwrap();
-        //        *counter += 1;
-        //        let counter = *counter;
-
         let mut rng = rand::thread_rng();
 
         let mut seeds: Vec<i32> = Vec::with_capacity(self.num_of_experiments);
@@ -189,7 +183,7 @@ impl Evaluator {
                 let mut x = line_it.next().unwrap().split(":");
                 let mut y = line_it.next().unwrap().split(":");
 
-                assert_eq!(i.next(), Some("i"));
+                assert_eq!(i.next(), Some("id"));
                 assert_eq!(x.next(), Some("x"));
                 assert_eq!(y.next(), Some("y"));
 
