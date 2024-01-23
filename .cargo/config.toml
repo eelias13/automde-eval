@@ -1,0 +1,9 @@
+[env]
+AUTOMODE_EXE = "/home/elias/code/cps-seminar/libs/AutoMoDe/bin/automode_main"
+SCENARIO = "/home/elias/code/cps-seminar/data/generated/mission_29/mission_29_fsm_local.argos"
+EXPERIMENT_LEN = "1200"
+NUM_OF_EXPERIMENT = "10"
+DB_PATH = "data.db"
+SWARM_MODE_DIST = "0.01"
+DENSITY_RADIUS = "0.01"
+SAVE_PROBABILITY = "0.01"
