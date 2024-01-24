@@ -2,17 +2,26 @@ use crate::{SwarmMetric, SwarmPos, SWARM_SIZE};
 
 pub fn metric_dist(
     sim_swarm_pos: &Vec<SwarmPos>,
-    real_swarm_pos: &Vec<SwarmPos>,
     swarm_mode_dist: f64,
     density_radius: f64,
+    real_swarm_metic: &Vec<SwarmMetric>,
+    metics_norm_min: &SwarmMetric,
+    metics_norm_max: &SwarmMetric,
 ) -> SwarmMetric {
     let sim_swarm_metic = to_metic(sim_swarm_pos, swarm_mode_dist, density_radius);
-    let real_swarm_metic = to_metic(real_swarm_pos, swarm_mode_dist, density_radius);
     let mut sum = SwarmMetric::default();
 
+    assert_eq!(sim_swarm_metic.len(), real_swarm_metic.len());
     for (sim, real) in sim_swarm_metic.iter().zip(real_swarm_metic.iter()) {
+        let mut metric_norm = SwarmMetric::default();
+        // (x - x_min) / (x_max - x_min)
+        for i in 0..metric_norm.len() {
+            metric_norm[i] =
+                (sim[i] - metics_norm_min[i]) / (metics_norm_max[i] - metics_norm_min[i]);
+        }
+
         for i in 0..sum.len() {
-            sum[i] += (sim[i] - real[i]).powi(2);
+            sum[i] += (&metric_norm[i] - real[i]).powi(2);
         }
     }
 
