@@ -8,10 +8,60 @@ pub type SwarmPos = [(f64, f64); SWARM_SIZE];
 pub type SwarmMetric = [f64; 9];
 
 fn main() {
-    let mut controller_cmd = std::env::args().collect::<Vec<String>>();
-    controller_cmd.remove(0);
+    let mut args = std::env::args().collect::<Vec<String>>();
+    args.remove(0);
+    if args.len() == 0 {
+        println!("no arguments passed");
+        println!("\nvalid arguments are:");
+        println!("\t--eval-controller <FSM>");
+        println!("\t--get-metrics -s <seed> <FSM>");
+        return;
+    }
+
     let eval: Evaluator = Evaluator::new();
-    println!("{}", eval.eval_controller(controller_cmd));
+
+    if args[0] == "--eval-controller" {
+        args.remove(0);
+        print!("{}", eval.eval_controller(args));
+        return;
+    }
+
+    if args[0] == "--get-metrics" {
+        if args.len() < 4 {
+            println!("to vew arguments supplied");
+            println!("\nvalid arguments are:");
+            println!("\t--eval-controller <FSM>");
+            println!("\t--get-metrics -s <seed> <FSM>");
+            return;
+        }
+
+        if args[1] != "-s" {
+            println!("expected -s but got {}", args[1]);
+            println!("\nvalid arguments are:");
+            println!("\t--eval-controller <FSM>");
+            println!("\t--get-metrics -s <seed> <FSM>");
+            return;
+        }
+
+        if let Ok(seed) = args[2].parse::<u32>() {
+            args.remove(0);
+            args.remove(0);
+            args.remove(0);
+            print!("{:?}", eval.eval_all(args, vec![seed as i32]));
+            return;
+        }
+
+        println!("expected <seed> but got {}", args[2]);
+        println!("\nvalid arguments are:");
+        println!("\t--eval-controller <FSM>");
+        println!("\t--get-metrics -s <seed> <FSM>");
+        return;
+    }
+
+    println!("unexpected argument {}", args[0]);
+    println!("\nvalid arguments are:");
+    println!("\t--eval-controller <FSM>");
+    println!("\t--get-metrics -s <seed> <FSM>");
 }
 
 // use futures_util::{SinkExt, StreamExt};

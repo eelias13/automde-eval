@@ -183,7 +183,7 @@ impl Evaluator {
                 let mut x = line_it.next().unwrap().split(":");
                 let mut y = line_it.next().unwrap().split(":");
 
-                assert_eq!(i.next(), Some("id"));
+                assert_eq!(i.next(), Some("i"));
                 assert_eq!(x.next(), Some("x"));
                 assert_eq!(y.next(), Some("y"));
 
