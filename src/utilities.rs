@@ -5,17 +5,17 @@ use tokio::runtime::Builder;
 
 #[derive(Debug, Clone)]
 pub struct Evaluator {
-    automode_exe: String,
-    scenario: String,
-    experiment_len: usize,
-    num_of_experiments: usize,
-    save_probability: f64,
-    swarm_mode_dist: f64,
-    density_radius: f64,
-    real_metric: Vec<SwarmMetric>,
-    metics_norm_min: SwarmMetric,
-    metics_norm_max: SwarmMetric,
-    db_path: String,
+    pub automode_exe: String,
+    pub scenario: String,
+    pub experiment_len: usize,
+    pub num_of_experiments: usize,
+    pub save_probability: f64,
+    pub swarm_mode_dist: f64,
+    pub density_radius: f64,
+    pub real_metric: Vec<SwarmMetric>,
+    pub metics_norm_min: SwarmMetric,
+    pub metics_norm_max: SwarmMetric,
+    pub db_path: String,
 }
 
 impl Evaluator {
@@ -135,7 +135,7 @@ impl Evaluator {
             .unwrap();
         let mut handles = Vec::with_capacity(num_of_experiments);
         for seed in seeds {
-            handles.push(runtime.spawn(self.clone().eval(controller_cmd.clone(), seed)));
+            handles.push(runtime.spawn(self.clone().eval_async(controller_cmd.clone(), seed)));
         }
 
         let metrics_data: Vec<Result<SwarmMetric, _>> =
@@ -157,7 +157,10 @@ impl Evaluator {
         return result;
     }
 
-    async fn eval(self, controller_cmd: Vec<String>, seed: i32) -> SwarmMetric {
+    async fn eval_async(self, controller_cmd: Vec<String>, seed: i32) -> SwarmMetric {
+        self.eval(controller_cmd, seed)
+    }
+    pub fn eval(&self, controller_cmd: Vec<String>, seed: i32) -> SwarmMetric {
         let sim_pos = self.run_experiment(controller_cmd, seed);
 
         assert_eq!(sim_pos.len(), self.experiment_len);
@@ -204,7 +207,7 @@ impl Evaluator {
 
                 current_pos[i] = (x, y);
                 if i == 14 {
-                    swarm_pos.push(current_pos)
+                    swarm_pos.push(current_pos);
                 }
             }
         }
@@ -256,7 +259,7 @@ fn get_real_norm_metrics() -> Vec<SwarmMetric> {
             .split(",")
             .map(|s| s.trim().parse().unwrap())
             .collect::<Vec<f64>>();
-        
+
         let mut metric = SwarmMetric::default();
         assert_eq!(vals.len(), metric.len());
 
@@ -270,68 +273,67 @@ fn get_real_norm_metrics() -> Vec<SwarmMetric> {
     return metrics;
 }
 
-// fn get_real_bot_data(experiment_len: usize) -> Vec<SwarmPos> {
-//     let mut line_it = include_str!("all_bot_pos.csv")
-//         .split("\n")
-//         .collect::<Vec<&str>>()
-//         .into_iter();
-//
-//     let head = line_it
-//         .next()
-//         .unwrap()
-//         .split(",")
-//         .map(|s| s.trim())
-//         .collect::<Vec<&str>>();
-//
-//     assert_eq!(head.len(), 2 * SWARM_SIZE);
-//
-//     let mut bot_pos = Vec::new();
-//
-//     for line in line_it {
-//         let line = line.trim();
-//         if line.is_empty() {
-//             continue;
-//         }
-//
-//         let vals = line
-//             .split(",")
-//             .map(|s| s.trim().parse().unwrap())
-//             .collect::<Vec<f64>>();
-//
-//         assert_eq!(vals.len(), 2 * SWARM_SIZE);
-//
-//         let mut data = SwarmPos::default();
-//         for (i, &val) in vals.iter().enumerate() {
-//             if i % 2 == 0 {
-//                 data[i / 2].0 = val;
-//             } else {
-//                 data[(i - 1) / 2].1 = val;
-//             }
-//         }
-//         bot_pos.push(data)
-//     }
-//
-//     assert!(bot_pos.len() >= experiment_len);
-//     if bot_pos.len() >= experiment_len {
-//         let delta = bot_pos.len() - experiment_len;
-//
-//         let mut temp = bot_pos.iter();
-//         if delta % 2 == 1 {
-//             assert_ne!(temp.next(), None);
-//         }
-//
-//         for _ in 0..(delta / 2) {
-//             assert_ne!(temp.next(), None);
-//         }
-//
-//         let mut temp = temp.map(|x| x.to_owned()).collect::<Vec<SwarmPos>>();
-//         for _ in 0..(delta / 2) {
-//             assert_ne!(temp.pop(), None);
-//         }
-//         bot_pos = temp;
-//     }
-//     assert_eq!(bot_pos.len(), experiment_len);
-//
-//     return bot_pos;
-// }
-//
+pub fn get_real_bot_data(experiment_len: usize) -> Vec<SwarmPos> {
+    let mut line_it = include_str!("all_bot_pos.csv")
+        .split("\n")
+        .collect::<Vec<&str>>()
+        .into_iter();
+
+    let head = line_it
+        .next()
+        .unwrap()
+        .split(",")
+        .map(|s| s.trim())
+        .collect::<Vec<&str>>();
+
+    assert_eq!(head.len(), 2 * 15);
+
+    let mut bot_pos = Vec::new();
+
+    for line in line_it {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        let vals = line
+            .split(",")
+            .map(|s| s.trim().parse().unwrap())
+            .collect::<Vec<f64>>();
+
+        assert_eq!(vals.len(), 2 * 15);
+
+        let mut data = SwarmPos::default();
+        for (i, &val) in vals.iter().enumerate() {
+            if i % 2 == 0 {
+                data[i / 2].0 = val;
+            } else {
+                data[(i - 1) / 2].1 = val;
+            }
+        }
+        bot_pos.push(data)
+    }
+
+    assert!(bot_pos.len() >= experiment_len);
+    if bot_pos.len() >= experiment_len {
+        let delta = bot_pos.len() - experiment_len;
+
+        let mut temp = bot_pos.iter();
+        if delta % 2 == 1 {
+            assert_ne!(temp.next(), None);
+        }
+
+        for _ in 0..(delta / 2) {
+            assert_ne!(temp.next(), None);
+        }
+
+        let mut temp = temp.map(|x| x.to_owned()).collect::<Vec<SwarmPos>>();
+        for _ in 0..(delta / 2) {
+            assert_ne!(temp.pop(), None);
+        }
+        bot_pos = temp;
+    }
+    assert_eq!(bot_pos.len(), experiment_len);
+
+    return bot_pos;
+}

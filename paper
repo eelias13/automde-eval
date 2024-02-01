@@ -1,0 +1,309 @@
+Abstract
+We extend the work of Ebert et al. [2020] by adding filtering methods
+for local communication in their Bayesian Decision-Making Algorithm.
+They developed a decentralized collective decision-making algorithm for
+robot swarms to classify an area for a spatially distributed feature. If an
+agent filters incoming messages, broadcasted by neighboring agents, for a
+property that then increases message value the likelihood for any agent
+to make the wrong decision decreases. We investigated the properties
+“furthest distance to agent” and “most previous observations”. We show
+that filtering for both these properties increases the decision accuracy of
+the swarm in exchange for longer decision times, with observation-based
+filtering being the more secure, but also slower property, however, we were
+able to completely avoid false collective decisions with this.
+1 Introduction
+Collective decision-making is central to swarm robotics. Every sensible objective that should be achieved using a robot swarm requires the swarm to arrive
+at a final decision since no robot on its own can perform tasks that are required for said objective. The problem with arriving at a collective decision
+with robots that adhere to typical swarm robotics design principles is simple
+hardware and decentralized control. There is no way for any agent to directly
+communicate with every other agent. There may be rare exceptions to this rule
+i.e. all agents cluster in one spot and exchange their findings, but they still
+cannot communicate globally while performing a distributed task. However,
+there is still the possibility to improve speed or accuracy of local decision making which then affects collective decisions. By exchanging information in local
+communication networks of agents, any single agent does not need to rely on
+its observations. Furthermore, if swarm density is high enough, information can
+propagate quickly throughout the whole swarm.
+In this paper, we build upon the work of Ebert et al. [2020] by addressing the
+same problem, but we investigate how decision-making quality as well as speed
+changes when adding constraints to locally available information. Filtering observations made by other agents based on properties like the number of total
+observations made or distance to the agent itself may make collective decisions
+more accurate by improving the quality of recorded information.
+For this work, we used a similar decentralized Bayesian decision algorithm as
+Ebert et al. [2020] in which a beta distribution, based on the color of observed
+tiles that form the arena agents move in, translates into one of two decisions an
+agent can arrive at. This “go/no-go” decision is whether the arena is predominantly covered in black or white tiles.
+This paper is structured as follows. Section 2 describes the model used by Ebert
+et al. [2020] and how we extend it as well as the problem in detail and how it
+deviates from the previous one. Section 3 presents used algorithms with a focus
+on our additions. In section 4 we present our experimental setup and procedure. Section 5 contains our experimental results and we draw our conclusion
+in section 6 as well as talk about future work on this problem.
+2 Model & Problem Definition
+Problem Definition
+We define an area in which a robot swarm should make decisions about a distributed property of the world they are in. This property can be anything robots
+can measure, but in this case, it is the coloration of the ground. The area is
+constructed of tiles that are either colored black or white. The distribution of
+said colors is known beforehand. In a distributed system, each agent is limited
+to local information. With communication between agents, a larger area can be
+covered and information be shared such that each agent can represent the world
+more accurately. Ebert et al. [2020] show how standard communication impacts
+collective decision performance, i.e. every agent that is in communication range
+gets used to collect more information at all times. We test for how performance
+changes if from all agents in communication range samples from only the one
+with the most samples is used or if information of agents that are further away
+leads to a better performance.
+Model
+We adapt the model used by Ebert et al. [2020], but modify how inter-robot
+communication is handled.
+Agents are situated in a world filled with black and white tiles whose ratio is
+determined by parameter f. Agents perform random walks and gather samples
+independently. Random walks consist of a fixed length of time in which agents
+move forward followed by a random turn. Samples are gathered in a predetermined time interval. Both, length of walking time and sample gathering time
+are controlled by parameters. Internally, samples are fed into a beta distribution with α and β being occurrences of black and white tiles respectively. For
+any agent to decide whether it has gathered enough samples to arrive at a final
+decision we use a parameter called probability threshold. Once this threshold
+has been exceeded either at the top or bottom a decision is made which cannot
+be changed later on. The idea behind using locally advertised observations of
+other agents is to speed up sample gathering as well as recording less spatially
+correlated samples. Spatial correlatedness is further decreased by only recording
+samples of the agent with the largest distance to any receiving agent. On the
+other hand, only recording samples of the agent with the most samples could
+lead to better quality solutions, since said agent observed more of world space.
+This is particularly interesting when we enable positive feedback. When positive
+feedback is enabled any agent that made a final decision advertises this decision
+instead of its last observation.
+3 Algorithm
+We adapted Ebert et al. [2020] Bayesian decision-making algorithm for our interagent communication variants.
+Bayesian Decision-Making Algorithm: Alg. 1 is largely unchanged. Additions over the original one are limited to further parameters and alternative
+formulations. This algorithm is executed by each agent and will lead to a binary
+classification of the arena based on observed colors C. At initialization, agents
+are placed randomly in the arena with random orientation. Each agent initializes its internal model with the given prior parameter α0. Furthermore, the
+observation index is initialized with 0, the final decision variable is initialized
+by −1, and the latest observation is initialized with an empty observation.
+At the start of each tick, agents will perform a random walk, with the length
+determined by random walk interval parameter ri followed by observing the
+tile underneath the agent. Counter variables for black and white observations,
+observation index, and latest observation are updated.
+At this point Alg. 2 is called to handle local communication with other agents.
+Next, agents will update their model of the arena. If an agent has not yet made
+a final decision, then it updates its beta distribution and evaluates it at 0.5. If
+the evaluation determines that the probability threshold pc has been exceeded,
+then the agent’s conclusion is: Arena is mostly white, which sets df = 1. If
+instead, it concludes that the counter probability of pc has been undercut, then
+it concludes: Arena is mostly black, which sets df = 0.
+Finally, if a conclusion has been made and positive feedback is enabled through
+parameter u
++, then an agent advertises its conclusion instead of its latest observation.
+Communication Algorithm (receiveMessageOfNeighbors: We introduce
+alternative handling of neighbor communication. There are two variants apart
+from standard communication with every available agent. Mode zero works by
+filtering nearby agents based on distance. Mode one works by filtering agents
+based on their observation index i. Firstly a list used for all agents that have
+been found nearby n is initialized, followed by a list that stores the final output
+m.
+We iterate through all agents that have been found nearby and save these in n.
+Next, a dummy message m′
+is created which will be overwritten by messages in
+communication modes zero and one. A message is comprised of distance to the
+agent and a broadcasted message. If an agent uses mode zero, then it ignores
+any agent that is not the furthest from it. Only messages of the agent with the
+largest distance, that is in communication range, are received. If instead agent
+uses mode one, then messages of the one agent with the most observations are
+received. If the agent itself has recorded more observations than every agent in
+the communication range, then no messages will be received.
+If an agent is in mode two, then all messages of all agents in communication
+range will be received.
+Finally, observation counters as well as the observation index of the agent are
+incremented with data from received messages.
+4 Experiments
+We conducted experiments testing three modes of neighbor message processing
+using a swarmy simulation. For all experiments, we generated new arenas of
+size 100 X 100 tiles, with each tile having a size of 10 X 10 in simulation units.
+Every tile is assigned either the color black or white according to the fill ratio of
+the arena, which we set to 0.52 for every experiment as Ebert et al. [2020] used
+this as the most challenging ratio. In each experiment, we initialized 100 agents
+which we scaled to be approximately the same size compared to the arena as
+Algorithm 1: Bayesian Decision-Making Algorithm
+Input : Random walk interval ri, positive feedback parameter u
++,
+probability threshold pc, agent instance a, communication
+mode comm, observation interval τ , prior parameter α0, list
+of all agents l
+Output: Binary classification of environment df
+1 Init counter of white observations α = α0
+2 Init counter of black observations β = α0
+3 Init observation index i = 0
+4 Init incomplete decision df = −1
+5 Init latest observation
+o = {agentID = 0, observationCount = 0, observedColor = −1}
+6 for t ∈ [1, T] do
+7 Perform pseudo-random walk
+8 if τ divides t then
+9 C ← observed color (0, 1)
+10 α ← α + C
+11 β ← β + (1 − C)
+12 i ← i + 1
+13 o ← {a.ID, i, C}
+14 end
+15 receiveMessagesOfNeighbors(a, u+, comm, l)
+16 if df == −1 then
+17 Let p denote the cumulative distribution function of
+Beta(α + α0, β + α0) at 0.5.
+18 if p > pc then
+19 df ← 1
+20 else
+21 if (1 − p) > pc then
+22 df ← 0
+23 end
+24 end
+25 end
+26 if df and u
++ then
+27 o.observedColor ← df
+28 end
+29 Broadcast message (coordinates, o)
+30 end
+Ebert et al. [2020] in their setup. The communication capabilities of agents are
+analogous to Ebert et al. [2020] as well, with the range being 3 times agent size.
+We conducted testing over various parameters with them being:
+• Observation intervals of 1, 5, 20, 50, 100, 200, 300
+• With and without positive feedback enabled
+• Probability thresholds of 0.9, 0.95, 0.98, 0.99
+Algorithm 2: receiveMessageOfNeighbors
+Input : Agent instance a, positive feedback parameter u
++,
+communication mode comm, list of all agents l
+Output: Updated counters for α, β, i of a through received messages
+of other agents in communication range
+1 Init list of nearby agents n = []
+2 Init list of messages to be sent m = []
+3 for all agents a
+′
+in l do
+4 if a
+′
+is in communication range then
+5 n.append(a
+′
+)
+6 end
+7 end
+8 m′ ← [0, {agentID = 0, observationCount = 0, observedColor = −1}]
+9 for all agents a
+′
+in n do
+10 if comm ̸= 2 then
+11 if comm == 0 then // distance based mode
+12 if m′
+[0] < distance between a and a
+′
+then
+13 m′
+[0] ← distance between a and a
+′
+14 m′
+[1] ← a
+′
+.o
+15 end
+16 end
+17 if comm == 1 then // observation counter based mode
+18 if m′
+[1].observationCount <= a
+′
+.o.observationCount then
+19 m′
+[1] ← a
+′
+.o
+20 end
+21 end
+22 else // default mode
+23 m′
+[1] ← a
+′
+.o
+24 m.append(m′
+)
+25 end
+26 end
+27 if comm ̸= 2 then
+28 m.append(m′
+)
+29 end
+30 for all o
+′
+in m[1] do
+31 a.α ← a.α + o
+′
+.observedColor
+32 a.β ← a.β + (1 − o
+′
+.observedColor)
+33 a.i ← a.i + 1 a.o ← o
+′
+34 end
+5 Results
+We gathered data for combinations of previously mentioned parameters, but
+present 4 data sets in particular. We used positive feedback for all runs, but
+Fig. 5. We also particularly tested a fill ratio of 0.52, since it is the hardest
+ratio to decide for.
+Figure 2: Performance of communication modes. Each point represents the
+time at which every robot of the swarm made a decision and is compared to
+the decision accuracy of the swarm. Swarm has made 100 decisions for each of
+the three communication modes. Here pc of 0.98 was used. Default mode had
+the fastest performance closely followed by filtering based on distance. Filtering
+based on observation counts performed notably worse in terms of speed, but
+accuracy is slightly better in average cases and much better in worst cases.
+Firstly, in Fig. 2 we used a strict threshold of pc = 0.98 to isolate the performance of our distinct communication modes. Further parameters like random
+walk duration and observation interval were set to 50 and 100 respectively.
+Results for this combination of parameters show that only receiving messages
+from agents with more observations is performing slower than both, filtering for
+the longest distance as well as using any messages available. However, while
+decision accuracy is roughly the same for all modes, with observations-based
+filtering being slightly more accurate, in the worst case positive feedback can
+push the swarm to false decisions if there is no filtering of received messages.
+Out of 100 runs 8 resulted in a collective decision that was wrong in default
+mode and 1 run in distance-based filtering.
+If we inspect Fig. 3 we notice, that decreasing pc to 0.9 decreased decision accuracy of the swarm for all modes, as well as sped up decision processes. False
+decisions weren’t as severely wrong as with pc = 0.98, but many decisions only
+barely decided white as well, thus making the average case worse.
+Figure 3: Same procedure as Fig. 2, but pc was set to 0.9 and again 100 runs
+per mode were used. Accuracy worsened compared to pt = 0.98, but runs are
+generally faster.
+Looking at Fig. 4 we see a similar trend of increased accuracy for filtering modes,
+but slower performance for the entire spectrum of tested pc values. Laying over
+different data sets of various pc values is problematic visually .
+Figure 4: Combined results of pc spanning (0.9, 0.95, 0.98, 0.99) with 5 runs per
+communication mode. Squares, crosses, triangles and dots symbolize listing of
+pc values respectively, so squares used pc = 0.90. A pc value of 0.9 tends to
+return worse results than others.
+Lastly in Fig. 5, we tested the performance of disabling positive feedback.
+A value of pc = 0.95 was used for this data set. While the lack of positive
+feedback results in longer runs, accuracy is decreased compared to runs with
+enabled positive feedback. Default communication mode runs finish even faster
+compared to other modes if we compare disparities of runs with positive feedback
+enabled.
+Figure 5: Same procedure as Fig. 2, but with disabled positive feedback. Runs
+are slower and have decreased accuracy.
+6 Conclusion & Future Work
+We introduced two alternative filtering modes for local communication in Ebert
+et al. [2020]’s Bayesian Decision-Making Algorithm. Both modes resulted in
+better quality decisions, especially in the worst cases. While the speed at which
+collective decisions can be made decreased, accuracy increased. This is due to
+each agent processing fewer samples, but selection for better quality decreases
+the probability of any agent deciding wrongly and thus the swarm having more
+robust collective decisions. While our results show that filtering for neighbors
+that received the most samples never led to a false collective decision, filtering
+for the most distant neighbor had less of a time penalty and only resulted in
+false decisions in 1% of cases compared to 8% if there was no filtering performed
+at all. An abundance of samples does not have to lead to better results.
+In future work, one could investigate if swarm density versus pc value can be
+balanced to find a sweet spot of reliability versus agents required.
+Other aspects of randomization can be introduced, such as a randomized observation interval. With this samples of a subgroup of agents are overrepresented.
+Paired with a different subgroup of agents, which use a lower pc value, this
+might lead to faster collective decisions while still preserving correctness, since
+individual decisions of agents that are careful in making their final decisions
+spread throughout the whole swarm.
+Furthermore, we didn’t test these parameters in real life. It is possible that
+these filtering procedures are too slow in real life if quality decreases and thus
+only high pc values such as 0.98 are required.
